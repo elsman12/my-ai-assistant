@@ -1,0 +1,76 @@
+/* основная панель */
+.sidebar {
+  width: 240px;
+  background: #ffffff;
+  border-right: 1px solid #e5e5e5;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100vh;
+}
+
+/* кнопка «Новый чат» */
+.btn-new-chat {
+  padding: 8px 12px;
+  margin-bottom: 24px;
+  background: #f5f7fa;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-new-chat:hover {
+  background: #e0e4e8;
+}
+
+/* меню сверху */
+.menu {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px 0;
+}
+.menu-item {
+  margin-bottom: 12px;
+  color: #555555;
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.menu-item:hover {
+  color: #000000;
+}
+
+/* список чатов */
+.chats {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 24px;
+}
+.chat-item {
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  color: #333333;
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.chat-item:hover {
+  background: #f0f0f0;
+}
+
+/* кнопка выхода */
+.btn-logout {
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: #e63946;
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.btn-logout:hover {
+  color: #b8323b;
+}
