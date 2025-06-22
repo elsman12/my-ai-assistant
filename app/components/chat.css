@@ -1,76 +1,53 @@
-/* app/components/chat.css */
-
-.chat-container {
-  background: #f7f8fa;
-  padding: 32px;
-  min-height: 100vh;
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding-top: 40px;
+  padding-bottom: 20px;
 }
 
-.message {
-  max-width: 650px;
-  margin-bottom: 20px;
-  padding: 12px 18px;
-  border-radius: 14px;
+.chat-col {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 300px;
+}
+
+.chat-message {
+  margin: 12px 0;
+  padding: 18px 24px;
+  border-radius: 22px;
+  font-size: 16px;
+  word-break: break-word;
   background: #fff;
   color: #222;
-  font-size: 1.1rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  box-shadow: 0 2px 8px #ececf1;
+  max-width: 100%;
+  align-self: flex-start;
+  transition: background 0.2s, border-radius 0.2s;
+  white-space: pre-wrap;
+  line-height: 1.5;
 }
 
-.message.user {
-  background: #eef1f7;
+.chat-message.user {
+  background: #eaf1fb;
   align-self: flex-end;
 }
 
-.message.assistant {
-  background: #e2e8f0;
+.chat-message.assistant {
+  background: #f7f9fa;
   align-self: flex-start;
+  border: 1px solid #d1d5db;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #202124;
 }
 
-.voice-btn {
-  background: #fff;
-  border: 1.5px solid #ececf1;
-  border-radius: 50%;
-  width: 44px;
-  height: 44px;
-  margin-left: 2px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 10px rgba(58, 139, 253, 0.04);
-  transition:
-    border 0.18s,
-    background 0.18s,
-    box-shadow 0.18s,
-    transform 0.15s;
-  padding: 0;
-}
-
-.voice-btn:hover,
-.voice-btn.listening {
-  border: 1.5px solid #3a8bfd;
-  background: #eaf2fe;
-  box-shadow: 0 4px 16px rgba(58, 139, 253, 0.12);
-  transform: scale(1.08);
-}
-
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(58, 139, 253, 0.25);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(58, 139, 253, 0.07);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(58, 139, 253, 0.0);
-  }
-}
-
-.voice-btn.listening {
-  animation: pulse 1.1s infinite;
-}
-
+/* Метка времени */
 .msg-meta {
   font-size: 12px;
   color: #b9b9c7;
@@ -78,6 +55,7 @@
   text-align: right;
 }
 
+/* Индикатор печати */
 .typing-indicator {
   display: flex;
   align-items: center;
@@ -98,12 +76,93 @@
 .typing-indicator .dot:nth-child(1) { animation-delay: 0s; }
 .typing-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
 .typing-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
-
 @keyframes typing-bounce {
   0% { transform: translateY(0); }
   100% { transform: translateY(-4px); }
 }
 
+/* Кнопки и поле ввода */
+.chat-input-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 0 18px 0;
+  background: #f7f7f8;
+  border-top: 1px solid #ececf1;
+}
+.chat-input {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 18px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  background: #fff;
+  box-shadow: 0 2px 10px #ececf133;
+  margin: 0 4px 0 0;
+}
+
+.chat-input:focus {
+  border: 1.5px solid #b9b9c7;
+}
+.chat-send {
+  background: #3a8bfd;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  box-shadow: 0 2px 10px #ececf1;
+}
+.chat-send:hover {
+  background: #2377e2;
+}
+
+/* Голосовая кнопка */
+.voice-btn {
+  background: #fff;
+  border: 1.5px solid #ececf1;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  margin-left: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(58, 139, 253, 0.04);
+  transition: border 0.18s, background 0.18s, box-shadow 0.18s, transform 0.15s;
+  padding: 0;
+}
+.voice-btn:hover,
+.voice-btn.listening {
+  border: 1.5px solid #3a8bfd;
+  background: #eaf2fe;
+  box-shadow: 0 4px 16px rgba(58, 139, 253, 0.12);
+  transform: scale(1.08);
+}
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(58, 139, 253, 0.25);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(58, 139, 253, 0.07);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(58, 139, 253, 0.0);
+  }
+}
+.voice-btn.listening {
+  animation: pulse 1.1s infinite;
+}
+
+/* Файлы */
 .file-btn {
   background: none;
   border: none;
@@ -114,18 +173,15 @@
   padding: 0;
   border-radius: 10px;
   transition: background 0.2s;
-  
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 44px; /* или высота кнопки, чтобы скрепка была в центре */
-  width: 44px;  /* опционально, чтобы кнопка была квадратной */
+  height: 44px;
+  width: 44px;
 }
-
 .file-btn:hover {
   background: #eaf2fe;
 }
-
 .file-btn svg {
   transition: stroke 0.2s;
 }
@@ -133,36 +189,44 @@
   stroke: #2377e2;
 }
 
-.sidebar {
-  width: 260px;
-  background: #fff;
-  border-right: 1px solid #ececf1;
-  padding: 16px;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
+/* Markdown/ссылки/код */
+.chat-message pre,
+.chat-message code {
+  background: #ececf1;
+  color: #222;
+  border-radius: 5px;
+  padding: 8px 12px;
+  font-family: 'JetBrains Mono', 'Fira Mono', 'Consolas', monospace;
+  font-size: 14px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.4;
 }
-
-.chats-list {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
+.chat-message pre {
+  margin: 16px 0;
 }
-
-.chat-item {
-  padding: 10px;
-  border-radius: 8px;
+.chat-message strong {
+  font-weight: 700;
+}
+.chat-message em {
+  font-style: italic;
+}
+.chat-message ul,
+.chat-message ol {
+  padding-left: 28px;
+  margin: 10px 0;
+}
+.chat-message li {
+  margin-bottom: 6px;
+}
+.chat-message a {
+  color: #2177e2;
+  text-decoration: underline;
+  word-break: break-word;
   cursor: pointer;
-  margin-bottom: 8px;
-  transition: background 0.3s ease;
 }
-
-.chat-item:hover {
-  background-color: #f3f3f5;
-}
-
-.chat-item.active {
-  background-color: #eaf2fe;
-  font-weight: bold;
+.chat-message a:hover {
+  color: #155ab6;
 }
 

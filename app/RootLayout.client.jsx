@@ -1,226 +1,392 @@
 "use client";
-
-import React, { useState } from "react";
-import Providers from "./providers";
+import React, { useState, useEffect } from "react";
+import { supabase } from "./supabaseClient";
 import ChatPage from "./components/ChatPage";
+import EmailAuth from "./components/EmailAuth";
 
 export default function RootLayoutClient() {
-  const [messagesByChat, setMessagesByChat] = useState({});
+  const [chats, setChats] = useState({});
   const [selectedChatId, setSelectedChatId] = useState(null);
-  const [chatCounter, setChatCounter] = useState(1);
+  const [user, setUser] = useState(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // для мобилки
 
-  const createNewChat = () => {
-    const newChatId = `chat_${chatCounter}`;
-    setChatCounter(chatCounter + 1);
-    setMessagesByChat({
-      ...messagesByChat,
-      [newChatId]: [],
+  // --- Авторизация: подписка на изменения пользователя
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setShowAuth(false);
     });
-    setSelectedChatId(newChatId);
-  };
+    return () => {
+      if (listener && typeof listener.subscription?.unsubscribe === "function") {
+        listener.subscription.unsubscribe();
+      } else if (listener && typeof listener.unsubscribe === "function") {
+        listener.unsubscribe();
+      }
+    };
+  }, []);
 
-  const deleteChat = (chatId) => {
-    const newChats = { ...messagesByChat };
-    delete newChats[chatId];
-    setMessagesByChat(newChats);
+  // --- Загрузка чатов из Supabase при входе пользователя
+  useEffect(() => {
+    async function loadChats() {
+      if (!user) return;
+      const { data, error } = await supabase
+        .from("chats")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+      if (!error) {
+        const obj = {};
+        data.forEach((c) => {
+          obj[c.id] = { title: c.title || "Без названия" };
+        });
+        setChats(obj);
+        if (!selectedChatId && data.length) setSelectedChatId(data[0].id);
+      }
+    }
+    loadChats();
+  }, [user]);
 
-    if (chatId === selectedChatId) {
-      const keys = Object.keys(newChats);
-      setSelectedChatId(keys.length > 0 ? keys[0] : null);
+  // --- Создать новый чат
+  const createNewChat = async () => {
+    if (!user) return setShowAuth(true);
+    const { data, error } = await supabase
+      .from("chats")
+      .insert([{ user_id: user.id, title: "Новый чат" }])
+      .select();
+    if (!error && data?.[0]) {
+      setChats((prev) => ({
+        ...prev,
+        [data[0].id]: { title: data[0].title }
+      }));
+      setSelectedChatId(data[0].id);
+      setSidebarOpen(false); // Закрыть меню на мобилке при создании чата
     }
   };
 
-  const setMessagesForChat = (chatId, newMessages) => {
-    setMessagesByChat({
-      ...messagesByChat,
-      [chatId]: newMessages,
+  // --- Удалить чат
+  const deleteChat = async (chatId) => {
+    if (!user || !chatId) return;
+    await supabase.from("messages").delete().eq("chat_id", chatId).eq("user_id", user.id);
+    await supabase.from("chats").delete().eq("id", chatId).eq("user_id", user.id);
+    setChats((prev) => {
+      const newChats = { ...prev };
+      delete newChats[chatId];
+      return newChats;
     });
+    setSelectedChatId(null);
   };
 
+  // --- Обновить название чата
+  const updateChatTitle = async (chatId, newTitle) => {
+    if (!chatId || !newTitle) return;
+    await supabase.from("chats").update({ title: newTitle }).eq("id", chatId);
+    setChats((prev) => ({
+      ...prev,
+      [chatId]: { ...(prev[chatId] || {}), title: newTitle }
+    }));
+  };
+
+  // --- Выйти из аккаунта
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setShowAuth(false);
+  };
+
+  function renderSidebarAuthBlock() {
+    return (
+      <div style={{
+        marginTop: "12px",
+        borderTop: "1px solid #ececf1",
+        paddingTop: "14px",
+        paddingBottom: "10px",
+      }}>
+        {user ? (
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 13, color: "#555", marginBottom: 6 }}>
+              {user.email}
+            </div>
+            <button
+              onClick={handleSignOut}
+              style={{
+                background: "#fff",
+                color: "#e63946",
+                border: "1px solid #e63946",
+                padding: "10px 0",
+                cursor: "pointer",
+                borderRadius: "7px",
+                width: "100%",
+                fontWeight: 600,
+                fontSize: "15px",
+                marginBottom: "4px",
+              }}
+            >
+              Выйти
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowAuth(true)}
+            style={{
+              background: "#3a8bfd",
+              color: "white",
+              border: "none",
+              padding: "10px 0",
+              cursor: "pointer",
+              borderRadius: "7px",
+              width: "100%",
+              fontWeight: 600,
+              fontSize: "15px",
+              marginBottom: "4px",
+            }}
+          >
+            Войти через Email
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <Providers>
-      <div
-        className="container"
+    <div className="container" style={{ display: "flex", height: "100vh" }}>
+      {/* Кнопка-гамбургер (открывает меню) — всегда вне сайдбара! */}
+      <button
+        className="mobile-sidebar-toggle"
+        onClick={() => setSidebarOpen(true)}
         style={{
+          display: "none", // включается на мобилке через CSS
+          position: "fixed",
+          top: 16,
+          left: 16,
+          zIndex: 10001,
+          background: "#fff",
+          border: "1px solid #ececf1",
+          borderRadius: 8,
+          width: 44,
+          height: 44,
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 28,
+          color: "#222",
+          boxShadow: "0 2px 12px #ececf1a0",
+          cursor: "pointer"
+        }}
+        aria-label="Открыть меню"
+      >
+        ☰
+      </button>
+
+      {/* Overlay для мобилки */}
+      {sidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: "fixed", left: 0, top: 0, width: "100vw", height: "100vh",
+            background: "#0005", zIndex: 10000, display: "block"
+          }}
+        />
+      )}
+
+      {/* SIDEBAR */}
+      <aside
+        className={`sidebar${sidebarOpen ? " open" : ""}`}
+        style={{
+          width: "260px",
+          background: "#F8F9FA",
+          borderRight: "1px solid #ececf1",
           display: "flex",
-          height: "100vh",
-          fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-          backgroundColor: "#f9f9f9",
+          flexDirection: "column",
+          padding: "18px 14px 0 14px",
+          boxSizing: "border-box",
+          minWidth: "200px",
+          position: "relative",
         }}
       >
-        <aside
-          className="sidebar"
+        {/* Кнопка-крестик для закрытия меню (только на мобилке) */}
+        <button
+          className="mobile-sidebar-close"
+          onClick={() => setSidebarOpen(false)}
           style={{
-            width: "260px",
-            background: "#ffffff",
-            borderRight: "1px solid #ddd",
-            display: "flex",
-            flexDirection: "column",
-            padding: "12px 16px",
-            boxSizing: "border-box",
-            boxShadow: "2px 0 5px rgba(0,0,0,0.05)",
+            display: "none", // включается на мобилке через CSS
+            position: "absolute",
+            top: 14,
+            right: 16,
+            background: "#fff",
+            border: "1px solid #ececf1",
+            borderRadius: 8,
+            width: 38,
+            height: 38,
+            fontSize: 25,
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#444",
+            cursor: "pointer",
+            zIndex: 10002
+          }}
+          aria-label="Закрыть меню"
+        >
+          ✕
+        </button>
+        <div
+          className="logo"
+          style={{
+            fontWeight: 700,
+            fontSize: 22,
+            marginBottom: 32,
+            color: "#202123",
+            letterSpacing: 0.1,
           }}
         >
-          <div
-            className="logo"
-            style={{
-              fontWeight: "700",
-              fontSize: "20px",
-              marginBottom: "12px",
-              color: "#222",
-              userSelect: "none",
-            }}
-          >
-            ChatGPT
-          </div>
-
-          <button
-            onClick={createNewChat}
-            style={{
-              background: "#444",
-              color: "#fff",
-              border: "none",
-              padding: "10px 14px",
-              marginBottom: "16px",
-              cursor: "pointer",
-              borderRadius: "6px",
-              fontWeight: "600",
-              transition: "background-color 0.3s ease",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#666")}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#444")}
-          >
-            + Новый чат
-          </button>
-
-          <div
-            className="chats-list"
-            style={{
-              flexGrow: 1,
-              overflowY: "auto",
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-              paddingRight: "4px",
-            }}
-          >
-            {Object.keys(messagesByChat).length === 0 && (
-              <div style={{ color: "#666", fontSize: "14px", padding: "10px 5px" }}>
-                Нет чатов. Создайте новый чат.
-              </div>
-            )}
-
-            {Object.entries(messagesByChat).map(([chatId]) => (
-              <div
-                key={chatId}
-                className={`chat-item ${chatId === selectedChatId ? "active" : ""}`}
-                onClick={() => setSelectedChatId(chatId)}
-                style={{
-                  padding: "10px 12px",
-                  cursor: "pointer",
-                  borderRadius: "6px",
-                  backgroundColor: chatId === selectedChatId ? "#e6e6e6" : "transparent",
-                  fontWeight: chatId === selectedChatId ? "700" : "500",
-                  color: "#333",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  userSelect: "none",
-                  transition: "background-color 0.2s ease",
-                }}
-                onMouseEnter={e => {
-                  if (chatId !== selectedChatId) e.currentTarget.style.backgroundColor = "#f0f0f0";
-                }}
-                onMouseLeave={e => {
-                  if (chatId !== selectedChatId) e.currentTarget.style.backgroundColor = "transparent";
-                }}
-              >
-                <span>{chatId.replace("chat_", "Чат ")}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteChat(chatId);
-                  }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "#cc0000",
-                    cursor: "pointer",
-                    fontSize: "18px",
-                    lineHeight: "18px",
-                    padding: "0 6px",
-                    fontWeight: "700",
-                    userSelect: "none",
-                  }}
-                  aria-label="Удалить чат"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div
-            className="upgrade"
-            style={{
-              marginTop: "12px",
-              borderTop: "1px solid #ddd",
-              paddingTop: "12px",
-            }}
-          >
-            <button
-              className="upgrade-btn"
-              style={{
-                background: "#28a745",
-                color: "white",
-                border: "none",
-                padding: "10px 16px",
-                cursor: "pointer",
-                borderRadius: "6px",
-                width: "100%",
-                fontWeight: "600",
-                letterSpacing: "0.03em",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#3ec15a")}
-              onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#28a745")}
-            >
-              Обновить план
-            </button>
-            <div
-              className="upgrade-desc"
-              style={{
-                fontSize: "12px",
-                color: "#666",
-                marginTop: "6px",
-                textAlign: "center",
-                userSelect: "none",
-              }}
-            >
-              Больше доступа к лучшим моделям
-            </div>
-          </div>
-        </aside>
-
-        <main
-          className="main"
+          ChatGPT
+        </div>
+        <button
+          onClick={createNewChat}
+          style={{
+            background: "#343541",
+            color: "#fff",
+            border: "none",
+            padding: "10px 0",
+            marginBottom: "16px",
+            cursor: "pointer",
+            borderRadius: "8px",
+            fontWeight: 600,
+            fontSize: 16,
+            boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
+            transition: "background 0.2s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#40414f")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#343541")}
+        >
+          + Новый чат
+        </button>
+        <div
+          className="chats-list"
           style={{
             flexGrow: 1,
+            overflowY: "auto",
             display: "flex",
             flexDirection: "column",
-            backgroundColor: "#fff",
+            gap: "8px",
           }}
         >
-          {selectedChatId ? (
-            <ChatPage
-              chatId={selectedChatId}
-              messages={Array.isArray(messagesByChat[selectedChatId]) ? messagesByChat[selectedChatId] : []}
-              setMessages={(newMessages) => setMessagesForChat(selectedChatId, newMessages)}
-            />
-          ) : (
-            <div style={{ padding: "20px", color: "#555" }}>Выберите чат или создайте новый.</div>
+          {Object.keys(chats).length === 0 && (
+            <div
+              style={{
+                color: "#666",
+                fontSize: "14px",
+                padding: "10px 5px",
+              }}
+            >
+              Нет чатов. Создайте новый чат.
+            </div>
           )}
-        </main>
-      </div>
-    </Providers>
+          {Object.entries(chats).map(([chatId, chat]) => (
+            <div
+              key={chatId}
+              className={`chat-item${chatId === selectedChatId ? " active" : ""}`}
+              onClick={() => {
+                setSelectedChatId(chatId);
+                setSidebarOpen(false); // Закрыть меню на мобилке после выбора чата
+              }}
+              style={{
+                padding: "10px 12px",
+                cursor: "pointer",
+                borderRadius: "7px",
+                backgroundColor: chatId === selectedChatId ? "#ececf1" : "transparent",
+                fontWeight: 500,
+                color: chatId === selectedChatId ? "#111" : "#222",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                fontSize: "15px",
+                gap: "8px",
+                transition: "background-color 0.18s",
+              }}
+              onMouseEnter={(e) => {
+                if (chatId !== selectedChatId)
+                  e.currentTarget.style.backgroundColor = "#f3f3f5";
+              }}
+              onMouseLeave={(e) => {
+                if (chatId !== selectedChatId)
+                  e.currentTarget.style.backgroundColor = "transparent";
+              }}
+            >
+              <span
+                style={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: 140,
+                }}
+                title={chat.title || "Чат"}
+              >
+                {chat.title || "Чат"}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteChat(chatId);
+                }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#c21f1f",
+                  cursor: "pointer",
+                  fontSize: 19,
+                  lineHeight: "19px",
+                  fontWeight: 700,
+                  userSelect: "none",
+                  marginLeft: "2px",
+                }}
+                aria-label="Удалить чат"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+        {/* Блок с кнопками Войти/Выйти */}
+        {renderSidebarAuthBlock()}
+      </aside>
+
+      {/* ОСНОВНОЕ ОКНО */}
+      <main className="main" style={{ flexGrow: 1, backgroundColor: "#fff" }}>
+        {selectedChatId ? (
+          <ChatPage
+            user={user}
+            chatId={selectedChatId}
+            updateChatTitle={updateChatTitle}
+          />
+        ) : (
+          <div style={{ padding: "20px", color: "#555" }}>
+            Выберите чат или создайте новый.
+          </div>
+        )}
+
+        {/* Модалка для EmailAuth */}
+        {showAuth && (
+          <div style={{
+            position: "fixed",
+            left: 0, top: 0, width: "100vw", height: "100vh",
+            background: "#0006", zIndex: 10001,
+            display: "flex", alignItems: "center", justifyContent: "center"
+          }}>
+            <div style={{
+              background: "#fff", borderRadius: 14, padding: 30, minWidth: 350, boxShadow: "0 8px 48px #0003",
+              position: "relative"
+            }}>
+              <EmailAuth setUser={setUser} />
+              <button onClick={() => setShowAuth(false)} style={{
+                position: "absolute", top: 10, right: 10, background: "#eee", border: "none",
+                padding: "6px 10px", borderRadius: 8, cursor: "pointer", color: "#333"
+              }}>✕</button>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
   );
 }

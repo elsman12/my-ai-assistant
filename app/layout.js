@@ -10,7 +10,14 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="ru">
-      <body>
+      <body style={{
+        height: "100vh",
+        minHeight: 0,
+        margin: 0,
+        padding: 0,
+        boxSizing: "border-box",
+        overflow: "hidden", // (чтобы не появлялся двойной скролл)
+      }}>
         <RootLayoutClient>{children}</RootLayoutClient>
       </body>
     </html>
